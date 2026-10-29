@@ -111,43 +111,86 @@ func rpm(_ value: Int?) -> String { value.map { "\($0) RPM" } ?? "N/A" }
 
 struct MonitorView: View {
     @ObservedObject var monitor: Monitor
+    private let navy = Color(red: 0.055, green: 0.09, blue: 0.15)
+    private let panel = Color(red: 0.105, green: 0.15, blue: 0.22)
+    private let gold = Color(red: 0.90, green: 0.72, blue: 0.38)
+    private let muted = Color(red: 0.72, green: 0.77, blue: 0.82)
+
+    private func metric(_ title: String, icon: String, value: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Label(title, systemImage: icon).font(.caption.weight(.medium)).foregroundStyle(muted)
+            Text(value).font(.system(size: 21, weight: .semibold, design: .rounded))
+                .monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+            Text(detail).font(.caption2).foregroundStyle(muted).lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+        .padding(10)
+        .background(panel, in: RoundedRectangle(cornerRadius: 6))
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Mac Mini Health").font(.headline)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("MAC MINI HEALTH").font(.caption.weight(.semibold)).foregroundStyle(gold)
+                    Text("System monitor").font(.system(size: 19, weight: .semibold))
+                }
                 Spacer()
                 if let url = Bundle.main.url(forResource: "GreateLogo", withExtension: "png"), let logo = NSImage(contentsOf: url) {
                     Link(destination: URL(string: "https://www.greate.com.hk/")!) {
-                        Image(nsImage: logo).resizable().scaledToFit().frame(width: 72, height: 24)
+                        Image(nsImage: logo).resizable().scaledToFit().frame(width: 70, height: 20)
+                            .padding(.horizontal, 6).padding(.vertical, 4)
+                            .background(Color.white, in: RoundedRectangle(cornerRadius: 4))
                     }
                     .accessibilityLabel("Visit Greate (HK) Limited website")
                     .help("Visit the Greate website")
                 }
-                Button("Quit") { NSApp.terminate(nil) }
+                Button { NSApp.terminate(nil) } label: { Image(systemName: "power") }
+                    .buttonStyle(.plain).foregroundStyle(muted).help("Quit monitor")
             }
-            Divider()
-            HStack { Text("Root available"); Spacer(); Text(size(monitor.latest?.freeBytes)).monospacedDigit() }
-            HStack { Text("Thermal state"); Spacer(); Text(monitor.latest?.thermal.rawValue.capitalized ?? "N/A") }
-            HStack { Text("CPU average"); Spacer(); Text(temperature(monitor.latest?.cpuTemperature)) }
-            HStack { Text("GPU average"); Spacer(); Text(temperature(monitor.latest?.gpuTemperature)) }
-            HStack { Text("Fan"); Spacer(); Text(rpm(monitor.latest?.fanRPM)) }
-            Text(monitor.latest.map { "Last saved: \($0.time.formatted(date: .abbreviated, time: .standard))" } ?? "No saved readings")
-                .font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 7) {
+                Image(systemName: "thermometer.medium").foregroundStyle(gold)
+                Text("Thermal state").foregroundStyle(muted)
+                Text(monitor.latest?.thermal.rawValue.capitalized ?? "N/A").fontWeight(.semibold)
+                Spacer()
+                Text(monitor.latest.map { $0.time.formatted(date: .omitted, time: .shortened) } ?? "No reading")
+                    .foregroundStyle(muted)
+            }.font(.caption)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                metric("SSD available", icon: "internaldrive", value: size(monitor.latest?.freeBytes), detail: "Local storage")
+                metric("Fan", icon: "fan", value: rpm(monitor.latest?.fanRPM), detail: "Managed by macOS")
+                metric("CPU temperature", icon: "cpu", value: temperature(monitor.latest?.cpuTemperature), detail: "Sensor average")
+                metric("GPU temperature", icon: "display", value: temperature(monitor.latest?.gpuTemperature), detail: "Sensor average")
+            }
             if let latest = monitor.latest, monitor.now.timeIntervalSince(latest.time) > 2 * interval {
-                Text("Reading is stale").foregroundStyle(.orange)
+                Text("Reading is stale").foregroundStyle(gold)
             }
-            if let error = monitor.storageError { Text("Storage error: \(error)").foregroundStyle(.red).textSelection(.enabled) }
-            if let error = monitor.diskError { Text("Disk reading unavailable: \(error)").foregroundStyle(.red) }
-            if let error = monitor.sensorError { Text(error).foregroundStyle(.orange) }
-            Divider()
-            Text("Seven-day history").font(.headline)
-            HStack { Text("Minimum available"); Spacer(); Text(size(monitor.minimum)) }
-            HStack { Text("Highest thermal state"); Spacer(); Text(monitor.highest?.rawValue.capitalized ?? "N/A") }
-            Text("\(monitor.samples.count) readings · \(monitor.historyGaps.count) missing periods").font(.caption)
+            if let error = monitor.storageError { Text("Storage error: \(error)").foregroundStyle(gold).textSelection(.enabled) }
+            if let error = monitor.diskError { Text("Disk reading unavailable: \(error)").foregroundStyle(gold) }
+            if let error = monitor.sensorError { Text(error).foregroundStyle(gold) }
+            Divider().overlay(muted.opacity(0.25))
+            HStack {
+                Text("7-day history").font(.subheadline.weight(.semibold))
+                Spacer()
+                Text("\(monitor.samples.count) readings · \(monitor.historyGaps.count) gaps")
+                    .font(.caption2).foregroundStyle(muted)
+            }
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("LOWEST SSD").font(.caption2).foregroundStyle(muted)
+                    Text(size(monitor.minimum)).font(.subheadline.weight(.semibold)).monospacedDigit()
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text("HIGHEST THERMAL").font(.caption2).foregroundStyle(muted)
+                    Text(monitor.highest?.rawValue.capitalized ?? "N/A").font(.subheadline.weight(.semibold))
+                }
+            }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 5) {
                     ForEach(Array(monitor.historyGaps.enumerated()), id: \.offset) { _, gap in
-                        Text("Gap: \(gap.start.formatted()) – \(gap.end.formatted())").foregroundStyle(.orange)
+                        Text("Gap: \(gap.start.formatted()) – \(gap.end.formatted())").foregroundStyle(gold)
                     }
                     Text("Readings (newest first)").fontWeight(.medium)
                     ForEach(Array(monitor.samples.reversed().enumerated()), id: \.offset) { _, sample in
@@ -157,9 +200,9 @@ struct MonitorView: View {
                         }
                     }
                 }.font(.caption).frame(maxWidth: .infinity, alignment: .leading)
-            }.frame(height: 145)
-            Divider()
-            Text("SSD temperature: N/A").font(.caption)
+            }.frame(height: 112)
+            Divider().overlay(muted.opacity(0.25))
+            Text("SSD temperature: N/A").font(.caption).foregroundStyle(muted)
             HStack {
                 Text("Low disk threshold (GiB)")
                 Spacer()
@@ -170,16 +213,40 @@ struct MonitorView: View {
                 Spacer()
                 if monitor.notificationStatus == "Not requested" { Button("Enable") { monitor.requestNotifications() } }
             }
-        }.padding(14).frame(width: 390)
+        }
+        .padding(16).frame(width: 390)
+        .foregroundStyle(Color.white)
+        .background(navy)
+        .preferredColorScheme(.dark)
     }
+}
+
+func menuBarIcon() -> NSImage? {
+    guard let url = Bundle.main.url(forResource: "MenuBarIcon", withExtension: "png"),
+          let source = NSImage(contentsOf: url) else { return nil }
+    let size = NSSize(width: 22, height: 18)
+    let icon = NSImage(size: size, flipped: false) { rect in
+        let crop = NSRect(x: source.size.width * 0.04, y: source.size.height * 0.20,
+                          width: source.size.width * 0.92, height: source.size.height * 0.60)
+        source.draw(in: rect.insetBy(dx: 0, dy: 2), from: crop, operation: .sourceOver, fraction: 1)
+        return true
+    }
+    icon.isTemplate = false
+    return icon
 }
 
 @main
 struct MacMiniMonitorApp: App {
     @StateObject private var monitor = Monitor()
     var body: some Scene {
-        MenuBarExtra("Mac Mini Health", systemImage: "heart.text.square") {
+        MenuBarExtra {
             MonitorView(monitor: monitor)
+        } label: {
+            if let icon = menuBarIcon() {
+                Image(nsImage: icon).accessibilityLabel("Mac Mini Health")
+            } else {
+                Image(systemName: "heart.text.square").accessibilityLabel("Mac Mini Health")
+            }
         }.menuBarExtraStyle(.window)
     }
 }

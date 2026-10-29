@@ -14,6 +14,8 @@ done
 iconutil -c icns "$PWD/.build/AppIcon.iconset" -o "$APP/Contents/Resources/AppIcon.icns"
 cp Assets/GreateLogo.png "$APP/Contents/Resources/GreateLogo.png"
 xattr -c "$APP/Contents/Resources/GreateLogo.png"
+cp Assets/AppIcon.png "$APP/Contents/Resources/MenuBarIcon.png"
+xattr -c "$APP/Contents/Resources/MenuBarIcon.png"
 cp "$PWD/.build/release/MacMiniMonitor" "$APP/Contents/MacOS/MacMiniMonitor"
 cp "$PWD/Info.plist" "$APP/Contents/Info.plist"
 codesign --force --sign - "$APP"
