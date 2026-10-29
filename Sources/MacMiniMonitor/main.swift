@@ -224,11 +224,11 @@ struct MonitorView: View {
 func menuBarIcon() -> NSImage? {
     guard let url = Bundle.main.url(forResource: "MenuBarIcon", withExtension: "png"),
           let source = NSImage(contentsOf: url) else { return nil }
-    let size = NSSize(width: 22, height: 18)
+    let size = NSSize(width: 24, height: 18)
     let icon = NSImage(size: size, flipped: false) { rect in
         let crop = NSRect(x: source.size.width * 0.04, y: source.size.height * 0.20,
                           width: source.size.width * 0.92, height: source.size.height * 0.60)
-        source.draw(in: rect.insetBy(dx: 0, dy: 2), from: crop, operation: .sourceOver, fraction: 1)
+        source.draw(in: rect.insetBy(dx: 0, dy: 1.2), from: crop, operation: .sourceOver, fraction: 1)
         return true
     }
     icon.isTemplate = false
